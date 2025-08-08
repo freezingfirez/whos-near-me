@@ -35,7 +35,7 @@ struct EditProfileView: View {
         _availabilityStatus = State(initialValue: profile.availabilityStatus)
         _birthday = State(initialValue: profile.birthday ?? Date())
 
-        if let data = Data(base64Encoded: profile.profilePictureUrl) {
+        if let profilePictureUrl = profile.profilePictureUrl, let data = Data(base64Encoded: profilePictureUrl) {
             _profilePictureData = State(initialValue: data)
         }
     }
