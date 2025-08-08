@@ -6,9 +6,9 @@ struct Profile: Identifiable, Codable {
     var bio: String
     var profilePictureUrl: String?
     var interests: [String]
-    var gender: String
-    var socialMediaLinks: [String: String]
-    var availabilityStatus: String
+    var gender: String?
+    var socialMediaLinks: [String: String]?
+    var availabilityStatus: String?
     var birthday: Date?
 
     enum CodingKeys: String, CodingKey {
