@@ -8,46 +8,25 @@ struct InvitationsView: View {
     @State private var alertMessage = ""
 
     var body: some View {
-        NavigationView {
-            List {
-                if receivedInvitations.isEmpty {
-                    Text("No invitations received.")
-                        .foregroundColor(.gray)
-                } else {
-                    ForEach(receivedInvitations) { invitation in
-                        VStack(alignment: .leading) {
-                            Text("From: \(invitation.sender.username)")
-                                .font(.headline)
-                            Text("Reason: \(invitation.reason)")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            HStack {
-                                Button("Accept") {
-                                    handleInvitation(invitationId: invitation.id, action: "accept")
-                                }
-                                .padding(.horizontal)
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .cornerRadius(5)
-
-                                Button("Decline") {
-                                    handleInvitation(invitationId: invitation.id, action: "decline")
-                                }
-                                .padding(.horizontal)
-                                .background(Color.red)
-                                .foregroundColor(.white)
-                                .cornerRadius(5)
-                            }
-                        }
-                        .padding(.vertical, 5)
+        List {
+            if receivedInvitations.isEmpty {
+                Text("No invitations received.")
+                    .foregroundColor(.gray)
+            } else {
+                ForEach(receivedInvitations) { invitation in
+                    InvitationRowView(invitation: invitation, isReceived: true) { action in
+                        handleInvitation(invitationId: invitation.id, action: action)
                     }
                 }
             }
-            .navigationTitle("My Invitations")
-            .onAppear(perform: fetchReceivedInvitations)
-            .alert(isPresented: $showingAlert) {
-                Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
-            }
+        }
+        .navigationTitle("Received Invitations")
+        .onAppear(perform: fetchReceivedInvitations)
+        .refreshable {
+            fetchReceivedInvitations()
+        }
+        .alert(isPresented: $showingAlert) {
+            Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
     }
 
@@ -71,7 +50,7 @@ struct InvitationsView: View {
 
                 do {
                     let decodedInvitations = try JSONDecoder().decode([Invitation].self, from: data)
-                    self.receivedInvitations = decodedInvitations.filter { $0.status == "pending" }
+                    self.receivedInvitations = decodedInvitations
                 } catch {
                     print("Error decoding invitations: \(error.localizedDescription)")
                     showAlert(title: "Error", message: "Failed to decode invitations: \(error.localizedDescription)")
@@ -115,30 +94,6 @@ struct InvitationsView: View {
         alertTitle = title
         alertMessage = message
         showingAlert = true
-    }
-}
-
-struct Invitation: Identifiable, Decodable {
-    let id: String
-    let sender: Sender
-    let reason: String
-    let status: String
-
-    enum CodingKeys: String, CodingKey {
-        case id = "_id"
-        case sender
-        case reason
-        case status
-    }
-}
-
-struct Sender: Decodable {
-    let id: String
-    let username: String
-
-    enum CodingKeys: String, CodingKey {
-        case id = "_id"
-        case username
     }
 }
 

@@ -25,6 +25,18 @@ const userSchema = new mongoose.Schema({
     isOnline: {
         type: Boolean,
         default: true
+    },
+    bio: {
+        type: String,
+        default: ''
+    },
+    profilePictureUrl: {
+        type: String,
+        default: ''
+    },
+    interests: {
+        type: [String],
+        default: []
     }
 }, { timestamps: true });
 

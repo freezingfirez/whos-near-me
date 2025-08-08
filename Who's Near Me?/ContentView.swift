@@ -1,44 +1,6 @@
-//
-//  ContentView.swift
-//  Who's Near Me?
-//
-//  Created by Nathan Fischer on 8/1/25.
-//
-
 import SwiftUI
 import MapKit
 import CoreLocation
-
-// MARK: - LocationManager
-class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    private let locationManager = CLLocationManager()
-    @Published var userLocation: CLLocation?
-    @Published var authorizationStatus: CLAuthorizationStatus
-
-    override init() {
-        self.authorizationStatus = locationManager.authorizationStatus
-        super.init()
-        self.locationManager.delegate = self
-        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        self.locationManager.requestWhenInUseAuthorization()
-        self.locationManager.startUpdatingLocation()
-    }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        authorizationStatus = manager.authorizationStatus
-        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
-            locationManager.startUpdatingLocation()
-        }
-    }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        userLocation = locations.last
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location manager failed with error: \(error.localizedDescription)")
-    }
-}
 
 // MARK: - ContentView
 struct ContentView: View {
@@ -53,20 +15,21 @@ struct ContentView: View {
     @State private var showingInvitationsSheet = false
 
     @State private var nearbyUsers: [User] = []
+    @State private var region: MKCoordinateRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.0090),
+        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+    )
+    @State private var radiusKm: Double = 5
+    @State private var lastSentLocation: CLLocation? = nil
+    @State private var lastSentAt: Date? = nil
+    @State private var isFetchingNearby: Bool = false
 
     var body: some View {
-        VStack {
-            if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways {
-                Map(coordinateRegion: .constant(MKCoordinateRegion(center: locationManager.userLocation?.coordinate ?? CLLocationCoordinate2D(), span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05))), showsUserLocation: true, annotationItems: nearbyUsers) { user in
+        NavigationView {
+            ZStack(alignment: .bottom) {
+                Map(coordinateRegion: $region, showsUserLocation: true, annotationItems: nearbyUsers) { user in
                     MapAnnotation(coordinate: user.coordinate) {
-                        VStack {
-                            Image(systemName: selectedUsers.contains(user.id) ? "person.fill.checkmark" : "person.fill")
-                                .foregroundColor(selectedUsers.contains(user.id) ? .blue : .red)
-                                .font(.title)
-                            Text(user.username)
-                                .font(.caption)
-                        }
-                        .onTapGesture {
+                        UserAnnotationView(user: user, isSelected: selectedUsers.contains(user.id)) {
                             if selectedUsers.contains(user.id) {
                                 selectedUsers.remove(user.id)
                             } else {
@@ -77,70 +40,70 @@ struct ContentView: View {
                 }
                 .edgesIgnoringSafeArea(.all)
 
-                HStack {
-                    Toggle(isOn: $isOnline) {
-                        Text("Online Status")
-                    }
-                    .padding()
-
-                    Spacer()
-
-                    TextField("Invitation Reason", text: $invitationReason)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.horizontal)
-
-                    if !selectedUsers.isEmpty {
-                        Button("Invite Selected") {
-                            sendInvitations(to: Array(selectedUsers), reason: invitationReason)
-                            selectedUsers.removeAll()
-                        }
-                        .padding()
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                    }
-
-                    Button("Invite All") {
+                SlidingPanelView(
+                    isOnline: $isOnline,
+                    radiusKm: $radiusKm,
+                    selectedUsers: $selectedUsers,
+                    invitationReason: $invitationReason,
+                    onInvite: {
+                        sendInvitations(to: Array(selectedUsers), reason: invitationReason)
+                        selectedUsers.removeAll()
+                    },
+                    onInviteAll: {
                         sendInvitations(to: nearbyUsers.map { $0.id }, reason: invitationReason)
                     }
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-
-                    Button("My Invitations") {
-                        showingInvitationsSheet = true
+                )
+            }
+            .navigationBarTitle("Who's Near Me?", displayMode: .inline)
+            .navigationBarItems(leading: onlineStatusToggle(), trailing: invitationsButton())
+            .sheet(isPresented: $showingInvitationsSheet) {
+                InvitationsRootView(userId: userId)
+            }
+            .alert(isPresented: $showingAlert) {
+                Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+            }
+            .onAppear {
+                // Initial fetch of nearby users
+                fetchNearbyUsers()
+                updateOnlineStatus(isOnline: isOnline)
+                if let coord = locationManager.userLocation?.coordinate {
+                    region.center = coord
+                }
+            }
+            .onChange(of: locationManager.userLocation) { newLocation in
+                if let location = newLocation {
+                    // Keep the map centered on user
+                    region.center = location.coordinate
+                    if isOnline, shouldSendLocationUpdate(newLocation: location) {
+                        updateUserLocation(location: location)
                     }
-                    .padding()
-                    .background(Color.purple)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
                 }
-                .padding(.horizontal)
-                .sheet(isPresented: $showingInvitationsSheet) {
-                    InvitationsView(userId: userId)
-                }
+            }
+            .onChange(of: isOnline) { newValue in
+                updateOnlineStatus(isOnline: newValue)
+            }
+            .onReceive(Timer.publish(every: 15, on: .main, in: .common).autoconnect()) { _ in
+                if isOnline { fetchNearbyUsers() }
+            }
+        }
+    }
 
-            } else {
-                Text("Please enable location services in Settings to use this app.")
-                    .padding()
-            }
+    private func onlineStatusToggle() -> some View {
+        Toggle(isOn: $isOnline) {
+            Text(isOnline ? "Online" : "Offline")
+                .font(.subheadline)
+                .fontWeight(.light)
         }
-        .alert(isPresented: $showingAlert) {
-            Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
-        }
-        .onAppear {
-            // Initial fetch of nearby users
-            fetchNearbyUsers()
-            updateOnlineStatus(isOnline: isOnline)
-        }
-        .onChange(of: locationManager.userLocation) { newLocation in
-            if isOnline, let location = newLocation {
-                updateUserLocation(location: location)
-            }
-        }
-        .onChange(of: isOnline) { newValue in
-            updateOnlineStatus(isOnline: newValue)
+        .toggleStyle(SwitchToggleStyle(tint: Color.theme.green))
+    }
+
+    private func invitationsButton() -> some View {
+        Button(action: {
+            showingInvitationsSheet = true
+        }) {
+            Image(systemName: "envelope.fill")
+                .font(.title2)
+                .foregroundColor(Color.theme.accent)
         }
     }
 
@@ -169,23 +132,35 @@ struct ContentView: View {
             }
             // Optionally handle success/failure response
             print("Location updated successfully")
-            fetchNearbyUsers() // Fetch nearby users after updating location
+            DispatchQueue.main.async {
+                fetchNearbyUsers() // Fetch nearby users after updating location
+            }
         }.resume()
     }
 
     private func fetchNearbyUsers() {
-        guard let url = URL(string: "\(API.baseURL)/api/nearby/\(userId)") else { return }
+        if isFetchingNearby { return }
+        DispatchQueue.main.async {
+            isFetchingNearby = true
+        }
+        let radiusMeters = Int(radiusKm * 1000)
+        guard let url = URL(string: "\(API.baseURL)/api/nearby/\(userId)?radius=\(radiusMeters)") else {
+            DispatchQueue.main.async { isFetchingNearby = false }
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Error fetching nearby users: \(error.localizedDescription)")
+                DispatchQueue.main.async { isFetchingNearby = false }
                 return
             }
 
             guard let data = data else {
                 print("No data received for nearby users.")
+                DispatchQueue.main.async { isFetchingNearby = false }
                 return
             }
 
@@ -193,9 +168,11 @@ struct ContentView: View {
                 let decodedUsers = try JSONDecoder().decode([User].self, from: data)
                 DispatchQueue.main.async {
                     self.nearbyUsers = decodedUsers
+                    self.isFetchingNearby = false
                 }
             } catch {
                 print("Error decoding nearby users: \(error.localizedDescription)")
+                DispatchQueue.main.async { isFetchingNearby = false }
             }
         }.resume()
     }
@@ -259,8 +236,127 @@ struct ContentView: View {
                 print("Error updating status: \(error.localizedDescription)")
                 return
             }
-            fetchNearbyUsers()
+            DispatchQueue.main.async {
+                fetchNearbyUsers()
+            }
         }.resume()
+    }
+
+    private func shouldSendLocationUpdate(newLocation: CLLocation) -> Bool {
+        // Send if never sent, moved > 15m, or last send > 20s ago
+        defer {
+            lastSentLocation = newLocation
+            lastSentAt = Date()
+        }
+
+        guard let lastLoc = lastSentLocation, let lastAt = lastSentAt else {
+            return true
+        }
+
+        let movedMeters = newLocation.distance(from: lastLoc)
+        let seconds = Date().timeIntervalSince(lastAt)
+        return movedMeters > 15 || seconds > 20
+    }
+}
+
+// MARK: - UserAnnotationView
+struct UserAnnotationView: View {
+    let user: User
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(systemName: "person.circle.fill")
+                .font(.largeTitle)
+                .foregroundColor(isSelected ? Color.theme.accent : Color.theme.red)
+            Text(user.username)
+                .font(.caption)
+                .fontWeight(.light)
+                .foregroundColor(.primary)
+        }
+        .padding(5)
+        .background(Color.theme.background.opacity(0.8))
+        .cornerRadius(10)
+        .shadow(radius: 1)
+        .onTapGesture(perform: action)
+    }
+}
+
+// MARK: - SlidingPanelView
+struct SlidingPanelView: View {
+    @Binding var isOnline: Bool
+    @Binding var radiusKm: Double
+    @Binding var selectedUsers: Set<String>
+    @Binding var invitationReason: String
+    let onInvite: () -> Void
+    let onInviteAll: () -> Void
+
+    var body: some View {
+        VStack {
+            VStack(alignment: .leading, spacing: 15) {
+                Text("Map Controls")
+                    .font(.title2)
+                    .fontWeight(.light)
+                    .foregroundColor(.primary)
+
+                Toggle(isOn: $isOnline) {
+                    Text("Online Status")
+                        .font(.body)
+                        .fontWeight(.light)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: Color.theme.green))
+
+                VStack(alignment: .leading) {
+                    Text("Search Radius: \(Int(radiusKm)) km")
+                        .font(.body)
+                        .fontWeight(.light)
+                    Slider(value: $radiusKm, in: 1...25, step: 1)
+                        .tint(Color.theme.accent)
+                }
+
+                if !selectedUsers.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Send Invitation")
+                            .font(.headline)
+                            .fontWeight(.light)
+
+                        TextField("Invitation Reason", text: $invitationReason)
+                            .padding()
+                            .background(Color.theme.accentLight)
+                            .cornerRadius(10)
+
+                        Button(action: onInvite) {
+                            Text("Invite \(selectedUsers.count) User\(selectedUsers.count > 1 ? "s" : "")")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.theme.accent)
+                                .cornerRadius(10)
+                        }
+                        .disabled(invitationReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                } else {
+                    Button(action: onInviteAll) {
+                        Text("Invite All Nearby")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.theme.accent)
+                            .cornerRadius(10)
+                    }
+                }
+            }
+            .padding(20)
+            .background(Color.theme.background)
+            .cornerRadius(20)
+            .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        }
+        .padding(.horizontal)
     }
 }
 
@@ -286,4 +382,33 @@ struct LocationData: Decodable {
     let coordinates: [Double]
 }
 
-// Remove invalid Preview to avoid build issues since ContentView needs a userId
+// MARK: - LocationManager
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let locationManager = CLLocationManager()
+    @Published var userLocation: CLLocation?
+    @Published var authorizationStatus: CLAuthorizationStatus
+
+    override init() {
+        self.authorizationStatus = locationManager.authorizationStatus
+        super.init()
+        self.locationManager.delegate = self
+        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        self.locationManager.requestWhenInUseAuthorization()
+        self.locationManager.startUpdatingLocation()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
+            locationManager.startUpdatingLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        userLocation = locations.last
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("Location manager failed with error: \(error.localizedDescription)")
+    }
+}

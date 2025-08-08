@@ -130,6 +130,44 @@ app.get('/api/nearby/:userId', async (req, res) => {
     }
 });
 
+// Get User Profile
+app.get('/api/profile/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await User.findById(userId).select('-password');
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Update User Profile
+app.put('/api/profile/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const { bio, profilePictureUrl, interests } = req.body;
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        user.bio = bio !== undefined ? bio : user.bio;
+        user.profilePictureUrl = profilePictureUrl !== undefined ? profilePictureUrl : user.profilePictureUrl;
+        user.interests = interests !== undefined ? interests : user.interests;
+
+        await user.save();
+        res.json({ msg: 'Profile updated successfully', user });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // Send Invitation
 app.post('/api/invite', async (req, res) => {
     const { senderId, receiverId, reason } = req.body;

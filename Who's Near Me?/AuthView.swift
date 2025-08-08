@@ -4,6 +4,7 @@ struct AuthView: View {
     @State private var isRegistering = false
     @State private var username = ""
     @State private var password = ""
+    @State private var isLoading = false
     @State private var showingAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -11,42 +12,70 @@ struct AuthView: View {
     @Binding var userId: String?
 
     var body: some View {
-        VStack {
-            Text(isRegistering ? "Register" : "Login")
-                .font(.largeTitle)
-                .padding()
+        ZStack {
+            Color.theme.background.edgesIgnoringSafeArea(.all)
 
-            TextField("Username", text: $username)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
-                .autocapitalization(.none)
+            VStack(spacing: 25) {
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 100))
+                    .foregroundColor(Color.theme.accent)
+                    .padding(.bottom, 20)
 
-            SecureField("Password", text: $password)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
+                Text("Who's Near Me?")
+                    .font(.largeTitle)
+                    .fontWeight(.light)
+                    .foregroundColor(.primary)
 
-            Button(action: {
-                if isRegistering {
-                    registerUser()
-                } else {
-                    loginUser()
+                Text(isRegistering ? "Create Your Account" : "Welcome Back")
+                    .font(.title2)
+                    .fontWeight(.light)
+                    .foregroundColor(Color.theme.secondaryText)
+
+                VStack(spacing: 15) {
+                    TextField("Username", text: $username)
+                        .padding()
+                        .background(Color.theme.accentLight)
+                        .cornerRadius(10)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+
+                    SecureField("Password", text: $password)
+                        .padding()
+                        .background(Color.theme.accentLight)
+                        .cornerRadius(10)
                 }
-            }) {
-                Text(isRegistering ? "Register" : "Login")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue)
-                    .cornerRadius(10)
-            }
-            .padding()
+                .padding(.horizontal)
 
-            Button(action: {
-                isRegistering.toggle()
-            }) {
-                Text(isRegistering ? "Already have an account? Login" : "Don't have an account? Register")
-                    .foregroundColor(.blue)
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                } else {
+                    Button(action: {
+                        if isRegistering {
+                            registerUser()
+                        } else {
+                            loginUser()
+                        }
+                    }) {
+                        Text(isRegistering ? "Register" : "Login")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.theme.accent)
+                            .cornerRadius(10)
+                    }
+                    .padding(.horizontal)
+                }
+
+                Button(action: {
+                    isRegistering.toggle()
+                }) {
+                    Text(isRegistering ? "Already have an account? Login" : "Don't have an account? Register")
+                        .font(.callout)
+                        .foregroundColor(Color.theme.accent)
+                }
             }
             .padding()
         }
@@ -56,6 +85,7 @@ struct AuthView: View {
     }
 
     private func registerUser() {
+        isLoading = true
         guard let url = URL(string: "\(API.baseURL)/api/register") else { return }
         let body: [String: Any] = ["username": username, "password": password, "latitude": 0.0, "longitude": 0.0] // Placeholder location
 
@@ -68,6 +98,7 @@ struct AuthView: View {
     }
 
     private func loginUser() {
+        isLoading = true
         guard let url = URL(string: "\(API.baseURL)/api/login") else { return }
         let body: [String: Any] = ["username": username, "password": password]
 
@@ -87,15 +118,16 @@ struct AuthView: View {
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
+                isLoading = false
                 if let error = error {
-                    alertTitle = "Error"
+                    alertTitle = "Network Error"
                     alertMessage = error.localizedDescription
                     showingAlert = true
                     return
                 }
 
                 guard let httpResponse = response as? HTTPURLResponse else {
-                    alertTitle = "Error"
+                    alertTitle = "Server Error"
                     alertMessage = "Invalid response from server."
                     showingAlert = true
                     return
@@ -104,14 +136,15 @@ struct AuthView: View {
                 if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
                     if let data = data, let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any], let receivedUserId = json["userId"] as? String {
                         self.userId = receivedUserId
+                        KeychainHelper.saveUserId(receivedUserId)
                     }
                     onSuccess()
-                } else if let data = data, let message = String(data: data, encoding: .utf8) {
+                } else if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: String], let message = json["msg"] {
                     alertTitle = "Error"
                     alertMessage = message
                     showingAlert = true
                 } else {
-                    alertTitle = "Error"
+                    alertTitle = "Server Error"
                     alertMessage = "Unknown error occurred. Status code: \(httpResponse.statusCode)"
                     showingAlert = true
                 }
