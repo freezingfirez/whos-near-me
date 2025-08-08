@@ -23,6 +23,18 @@ struct Profile: Identifiable, Codable {
         case birthday
     }
 
+    init(id: String, username: String, bio: String, profilePictureUrl: String?, interests: [String], gender: String?, socialMediaLinks: [String: String]?, availabilityStatus: String?, birthday: Date?) {
+        self.id = id
+        self.username = username
+        self.bio = bio
+        self.profilePictureUrl = profilePictureUrl
+        self.interests = interests
+        self.gender = gender
+        self.socialMediaLinks = socialMediaLinks
+        self.availabilityStatus = availabilityStatus
+        self.birthday = birthday
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
