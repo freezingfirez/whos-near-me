@@ -154,8 +154,11 @@ struct ProfileView: View {
                     return
                 }
 
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+
                 do {
-                    let decodedProfile = try JSONDecoder().decode(Profile.self, from: data)
+                    let decodedProfile = try decoder.decode(Profile.self, from: data)
                     self.profile = decodedProfile
                 } catch {
                     alertTitle = "Error"

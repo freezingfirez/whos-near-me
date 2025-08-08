@@ -158,8 +158,11 @@ struct EditProfileView: View {
                     return
                 }
 
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+
                 if httpResponse.statusCode == 200 {
-                    if let data = data, let response = try? JSONDecoder().decode(ProfileUpdateResponse.self, from: data) {
+                    if let data = data, let response = try? decoder.decode(ProfileUpdateResponse.self, from: data) {
                         onSave(response.user)
                     } else {
                         alertTitle = "Success"
@@ -178,50 +181,3 @@ struct EditProfileView: View {
             }
         }.resume()
     }
-}
-
-struct PhotoPicker: UIViewControllerRepresentable {
-    @Binding var profilePictureData: Data?
-
-    func makeUIViewController(context: Context) -> PHPickerViewController {
-        var configuration = PHPickerConfiguration()
-        configuration.filter = .images
-        configuration.selectionLimit = 1
-        let picker = PHPickerViewController(configuration: configuration)
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, PHPickerViewControllerDelegate {
-        let parent: PhotoPicker
-
-        init(_ parent: PhotoPicker) {
-            self.parent = parent
-        }
-
-        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            picker.dismiss(animated: true)
-
-            guard let result = results.first else { return }
-
-            result.itemProvider.loadObject(ofClass: UIImage.self) { object, error in
-                if let image = object as? UIImage {
-                    DispatchQueue.main.async {
-                        self.parent.profilePictureData = image.jpegData(compressionQuality: 0.8)
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct ProfileUpdateResponse: Decodable {
-    let msg: String
-    let user: Profile
-}
