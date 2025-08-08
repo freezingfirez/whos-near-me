@@ -29,10 +29,10 @@ struct EditProfileView: View {
         self.onSave = onSave
         _bio = State(initialValue: profile.bio)
         _interests = State(initialValue: profile.interests.joined(separator: ", "))
-        _gender = State(initialValue: profile.gender)
-        _twitterLink = State(initialValue: profile.socialMediaLinks["twitter"] ?? "")
-        _linkedinLink = State(initialValue: profile.socialMediaLinks["linkedin"] ?? "")
-        _availabilityStatus = State(initialValue: profile.availabilityStatus)
+        _gender = State(initialValue: profile.gender ?? "")
+        _twitterLink = State(initialValue: profile.socialMediaLinks?["twitter"] ?? "")
+        _linkedinLink = State(initialValue: profile.socialMediaLinks?["linkedin"] ?? "")
+        _availabilityStatus = State(initialValue: profile.availabilityStatus ?? "Available")
         _birthday = State(initialValue: profile.birthday ?? Date())
 
         if let profilePictureUrl = profile.profilePictureUrl, let data = Data(base64Encoded: profilePictureUrl) {
