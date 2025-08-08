@@ -126,7 +126,7 @@ struct ProfileView: View {
             .navigationTitle("Profile")
             .onAppear(perform: fetchProfile)
             .sheet(isPresented: $showingEditProfileSheet) {
-                EditProfileView(userId: userId, profile: profile ?? Profile(id: userId, username: "", bio: "", profilePictureUrl: "", interests: [], gender: "", socialMediaLinks: [:], availabilityStatus: "Available", birthday: nil), onSave: { updatedProfile in
+                EditProfileView(userId: userId, profile: profile ?? Profile(id: userId, username: "", bio: "", interests: [], gender: nil, socialMediaLinks: nil, availabilityStatus: nil, birthday: nil), onSave: { updatedProfile in
                     self.profile = updatedProfile
                     showingEditProfileSheet = false
                 })
