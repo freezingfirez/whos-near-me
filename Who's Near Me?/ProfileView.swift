@@ -55,8 +55,8 @@ struct ProfileView: View {
                             }
                         }
 
-                        if !profile.gender.isEmpty {
-                            Text("Gender: \(profile.gender)")
+                        if let gender = profile.gender, !gender.isEmpty {
+                            Text("Gender: \(gender)")
                                 .font(.subheadline)
                                 .foregroundColor(Color.theme.secondaryText)
                         }
@@ -67,12 +67,12 @@ struct ProfileView: View {
                                 .foregroundColor(Color.theme.secondaryText)
                         }
 
-                        if !profile.socialMediaLinks.isEmpty {
+                        if let socialMediaLinks = profile.socialMediaLinks, !socialMediaLinks.isEmpty {
                             VStack(alignment: .leading) {
                                 Text("Social Media:")
                                     .font(.headline)
                                     .fontWeight(.medium)
-                                ForEach(profile.socialMediaLinks.sorted(by: <), id: \.key) { key, value in
+                                ForEach(socialMediaLinks.sorted(by: <), id: \.key) { key, value in
                                     Text("\(key.capitalized): \(value)")
                                         .font(.subheadline)
                                         .foregroundColor(Color.theme.secondaryText)
@@ -80,9 +80,11 @@ struct ProfileView: View {
                             }
                         }
 
-                        Text("Status: \(profile.availabilityStatus)")
-                            .font(.subheadline)
-                            .foregroundColor(Color.theme.secondaryText)
+                        if let availabilityStatus = profile.availabilityStatus, !availabilityStatus.isEmpty {
+                            Text("Status: \(availabilityStatus)")
+                                .font(.subheadline)
+                                .foregroundColor(Color.theme.secondaryText)
+                        }
 
                         Button(action: {
                             showingEditProfileSheet = true
