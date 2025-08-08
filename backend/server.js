@@ -148,7 +148,7 @@ app.get('/api/profile/:userId', async (req, res) => {
 // Update User Profile
 app.put('/api/profile/:userId', async (req, res) => {
     const { userId } = req.params;
-    const { bio, profilePictureUrl, interests } = req.body;
+    const { bio, profilePictureUrl, interests, gender, socialMediaLinks, availabilityStatus, birthday } = req.body;
 
     try {
         const user = await User.findById(userId);
@@ -159,6 +159,10 @@ app.put('/api/profile/:userId', async (req, res) => {
         user.bio = bio !== undefined ? bio : user.bio;
         user.profilePictureUrl = profilePictureUrl !== undefined ? profilePictureUrl : user.profilePictureUrl;
         user.interests = interests !== undefined ? interests : user.interests;
+        user.gender = gender !== undefined ? gender : user.gender;
+        user.socialMediaLinks = socialMediaLinks !== undefined ? socialMediaLinks : user.socialMediaLinks;
+        user.availabilityStatus = availabilityStatus !== undefined ? availabilityStatus : user.availabilityStatus;
+        user.birthday = birthday !== undefined ? birthday : user.birthday;
 
         await user.save();
         res.json({ msg: 'Profile updated successfully', user });

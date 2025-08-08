@@ -16,11 +16,20 @@ struct ProfileView: View {
 
                 VStack(spacing: 25) {
                     if let profile = profile {
-                        Image(systemName: "person.crop.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 150, height: 150)
-                            .foregroundColor(Color.theme.accent)
+                        if let imageData = Data(base64Encoded: profile.profilePictureUrl), let uiImage = UIImage(data: imageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 150, height: 150)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.theme.accent, lineWidth: 4))
+                        } else {
+                            Image(systemName: "person.crop.circle.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 150, height: 150)
+                                .foregroundColor(Color.theme.accent)
+                        }
 
                         Text(profile.username)
                             .font(.largeTitle)
@@ -45,6 +54,35 @@ struct ProfileView: View {
                                     .cornerRadius(5)
                             }
                         }
+
+                        if !profile.gender.isEmpty {
+                            Text("Gender: \(profile.gender)")
+                                .font(.subheadline)
+                                .foregroundColor(Color.theme.secondaryText)
+                        }
+
+                        if let birthday = profile.birthday {
+                            Text("Birthday: \(birthday, formatter: DateFormatter.shortDate)")
+                                .font(.subheadline)
+                                .foregroundColor(Color.theme.secondaryText)
+                        }
+
+                        if !profile.socialMediaLinks.isEmpty {
+                            VStack(alignment: .leading) {
+                                Text("Social Media:")
+                                    .font(.headline)
+                                    .fontWeight(.medium)
+                                ForEach(profile.socialMediaLinks.sorted(by: <), id: \.key) { key, value in
+                                    Text("\(key.capitalized): \(value)")
+                                        .font(.subheadline)
+                                        .foregroundColor(Color.theme.secondaryText)
+                                }
+                            }
+                        }
+
+                        Text("Status: \(profile.availabilityStatus)")
+                            .font(.subheadline)
+                            .foregroundColor(Color.theme.secondaryText)
 
                         Button(action: {
                             showingEditProfileSheet = true
@@ -86,7 +124,7 @@ struct ProfileView: View {
             .navigationTitle("Profile")
             .onAppear(perform: fetchProfile)
             .sheet(isPresented: $showingEditProfileSheet) {
-                EditProfileView(userId: userId, profile: profile ?? Profile(id: userId, username: "", bio: "", profilePictureUrl: "", interests: []), onSave: { updatedProfile in
+                EditProfileView(userId: userId, profile: profile ?? Profile(id: userId, username: "", bio: "", profilePictureUrl: "", interests: [], gender: "", socialMediaLinks: [:], availabilityStatus: "Available", birthday: nil), onSave: { updatedProfile in
                     self.profile = updatedProfile
                     showingEditProfileSheet = false
                 })
@@ -127,6 +165,14 @@ struct ProfileView: View {
             }
         }.resume()
     }
+}
+
+extension DateFormatter {
+    static let shortDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        return formatter
+    }()
 }
 
 

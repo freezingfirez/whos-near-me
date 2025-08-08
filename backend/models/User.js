@@ -37,6 +37,23 @@ const userSchema = new mongoose.Schema({
     interests: {
         type: [String],
         default: []
+    },
+    gender: {
+        type: String,
+        default: ''
+    },
+    socialMediaLinks: {
+        type: Map,
+        of: String,
+        default: {}
+    },
+    availabilityStatus: {
+        type: String,
+        default: 'Available'
+    },
+    birthday: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 
