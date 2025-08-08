@@ -2,7 +2,8 @@ import SwiftUI
 
 struct AuthView: View {
     @State private var isRegistering = false
-    @State private var username = ""
+    @State private var email = ""
+    @State private var username = "" // New field for registration
     @State private var password = ""
     @State private var isLoading = false
     @State private var showingAlert = false
@@ -32,12 +33,22 @@ struct AuthView: View {
                     .foregroundColor(Color.theme.secondaryText)
 
                 VStack(spacing: 15) {
-                    TextField("Username", text: $username)
+                    TextField("Email", text: $email)
                         .padding()
                         .background(Color.theme.accentLight)
                         .cornerRadius(10)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
+                        .keyboardType(.emailAddress)
+
+                    if isRegistering {
+                        TextField("Username (display name)", text: $username)
+                            .padding()
+                            .background(Color.theme.accentLight)
+                            .cornerRadius(10)
+                            .autocapitalization(.words)
+                            .disableAutocorrection(true)
+                    }
 
                     SecureField("Password", text: $password)
                         .padding()
@@ -87,7 +98,7 @@ struct AuthView: View {
     private func registerUser() {
         isLoading = true
         guard let url = URL(string: "\(API.baseURL)/api/register") else { return }
-        let body: [String: Any] = ["username": username, "password": password, "latitude": 0.0, "longitude": 0.0] // Placeholder location
+        let body: [String: Any] = ["email": email, "username": username, "password": password, "latitude": 0.0, "longitude": 0.0] // Placeholder location
 
         performAuthRequest(url: url, body: body) {
             alertTitle = "Registration Success"
@@ -100,7 +111,7 @@ struct AuthView: View {
     private func loginUser() {
         isLoading = true
         guard let url = URL(string: "\(API.baseURL)/api/login") else { return }
-        let body: [String: Any] = ["username": username, "password": password]
+        let body: [String: Any] = ["email": email, "password": password]
 
         performAuthRequest(url: url, body: body) {
             alertTitle = "Login Success"
