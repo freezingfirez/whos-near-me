@@ -4,7 +4,7 @@ struct Profile: Identifiable, Codable {
     let id: String
     let username: String
     var bio: String
-    var profilePictureUrl: String
+    var profilePictureUrl: String?
     var interests: [String]
     var gender: String
     var socialMediaLinks: [String: String]
