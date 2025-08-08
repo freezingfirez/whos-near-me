@@ -16,7 +16,7 @@ struct ProfileView: View {
 
                 VStack(spacing: 25) {
                     if let profile = profile {
-                        if let imageData = Data(base64Encoded: profile.profilePictureUrl), let uiImage = UIImage(data: imageData) {
+                        if let profilePictureUrl = profile.profilePictureUrl, let imageData = Data(base64Encoded: profilePictureUrl), let uiImage = UIImage(data: imageData) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFill()
