@@ -6,6 +6,7 @@ struct EditProfileView: View {
     @Binding var profile: Profile
     var onSave: (Profile) -> Void
 
+    @State private var username: String // Add username state
     @State private var bio: String
     @State private var interests: String
     @State private var profilePictureData: Data? // For selected image
@@ -27,6 +28,7 @@ struct EditProfileView: View {
         self.userId = userId
         self._profile = Binding.constant(profile)
         self.onSave = onSave
+        _username = State(initialValue: profile.username) // Initialize username
         _bio = State(initialValue: profile.bio)
         _interests = State(initialValue: profile.interests.joined(separator: ", "))
         _gender = State(initialValue: profile.gender ?? "")
@@ -66,6 +68,12 @@ struct EditProfileView: View {
                         }
                         Spacer()
                     }
+                }
+
+                Section(header: Text("Public Profile")) { // New Section
+                    TextField("Username", text: $username)
+                        .autocapitalization(.words)
+                        .disableAutocorrection(true)
                 }
 
                 Section(header: Text("About You")) {
@@ -132,6 +140,7 @@ struct EditProfileView: View {
         let profilePictureBase64 = profilePictureData?.base64EncodedString()
 
         let body: [String: Any] = [
+            "username": username, // Include username in the body
             "bio": bio,
             "interests": interestsArray,
             "profilePictureUrl": profilePictureBase64 ?? "",

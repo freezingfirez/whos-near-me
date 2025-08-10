@@ -5,6 +5,7 @@ struct ProfileView: View {
     @Binding var isAuthenticated: Bool
     @State private var profile: Profile? = nil
     @State private var showingEditProfileSheet = false
+    @State private var showingDeleteConfirmation = false // New state for confirmation
     @State private var showingAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -107,6 +108,20 @@ struct ProfileView: View {
                     Spacer()
 
                     Button(action: {
+                        showingDeleteConfirmation = true // Show confirmation alert
+                    }) {
+                        Text("Delete Account")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.theme.red)
+                            .cornerRadius(10)
+                    }
+                    .padding(.horizontal)
+
+                    Button(action: {
                         KeychainHelper.deleteUserId()
                         isAuthenticated = false
                     }) {
@@ -116,7 +131,7 @@ struct ProfileView: View {
                             .foregroundColor(.white)
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(Color.theme.red)
+                            .background(Color.gray)
                             .cornerRadius(10)
                     }
                     .padding(.horizontal)
@@ -134,7 +149,57 @@ struct ProfileView: View {
             .alert(isPresented: $showingAlert) {
                 Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
             }
+            .alert(isPresented: $showingDeleteConfirmation) { // New confirmation alert
+                Alert(
+                    title: Text("Delete Account"),
+                    message: Text("Are you sure you want to delete your account? This action cannot be undone."),
+                    primaryButton: .destructive(Text("Delete")) {
+                        deleteAccount()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
         }
+    }
+
+    private func deleteAccount() {
+        guard let url = URL(string: "\(API.baseURL)/api/user/\(userId)") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    alertTitle = "Error"
+                    alertMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showingAlert = true
+                    return
+                }
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    alertTitle = "Server Error"
+                    alertMessage = "Invalid response from server."
+                    showingAlert = true
+                    return
+                }
+
+                if httpResponse.statusCode == 200 {
+                    alertTitle = "Account Deleted"
+                    alertMessage = "Your account has been successfully deleted."
+                    showingAlert = true
+                    KeychainHelper.deleteUserId()
+                    isAuthenticated = false
+                } else if let data = data, let message = String(data: data, encoding: .utf8) {
+                    alertTitle = "Error"
+                    alertMessage = "Failed to delete account: \(message)"
+                    showingAlert = true
+                } else {
+                    alertTitle = "Server Error"
+                    alertMessage = "Unknown error occurred. Status code: \(httpResponse.statusCode)"
+                    showingAlert = true
+                }
+            }
+        }.resume()
     }
 
     private func fetchProfile() {
