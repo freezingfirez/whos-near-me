@@ -23,18 +23,19 @@ mongoose
 
 // Register User
 app.post('/api/register', async (req, res) => {
-    const { username, password, latitude, longitude } = req.body;
+    const { email, username, password, latitude, longitude } = req.body;
 
     try {
-        let user = await User.findOne({ username });
+        let user = await User.findOne({ email });
         if (user) {
-            return res.status(400).json({ msg: 'User already exists' });
+            return res.status(400).json({ msg: 'User with that email already exists' });
         }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         user = new User({
+            email,
             username,
             password: hashedPassword,
             location: {
@@ -54,10 +55,10 @@ app.post('/api/register', async (req, res) => {
 
 // Login User
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ username });
+        const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
@@ -148,7 +149,7 @@ app.get('/api/profile/:userId', async (req, res) => {
 // Update User Profile
 app.put('/api/profile/:userId', async (req, res) => {
     const { userId } = req.params;
-    const { bio, profilePictureUrl, interests, gender, socialMediaLinks, availabilityStatus, birthday } = req.body;
+    const { username, bio, profilePictureUrl, interests, gender, socialMediaLinks, availabilityStatus, birthday } = req.body;
 
     try {
         const user = await User.findById(userId);
@@ -156,6 +157,7 @@ app.put('/api/profile/:userId', async (req, res) => {
             return res.status(404).json({ msg: 'User not found' });
         }
 
+        user.username = username !== undefined ? username : user.username;
         user.bio = bio !== undefined ? bio : user.bio;
         user.profilePictureUrl = profilePictureUrl !== undefined ? profilePictureUrl : user.profilePictureUrl;
         user.interests = interests !== undefined ? interests : user.interests;
