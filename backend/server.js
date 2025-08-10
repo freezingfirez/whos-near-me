@@ -174,6 +174,28 @@ app.put('/api/profile/:userId', async (req, res) => {
     }
 });
 
+// Delete User Account
+app.delete('/api/user/:userId', async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Delete the user
+        const user = await User.findByIdAndDelete(userId);
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        // Delete invitations sent by or received by this user
+        await Invitation.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] });
+
+        res.json({ msg: 'User account and associated data deleted successfully' });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // Send Invitation
 app.post('/api/invite', async (req, res) => {
     const { senderId, receiverId, reason } = req.body;
